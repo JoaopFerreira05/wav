@@ -1,0 +1,167 @@
+\documentclass[11pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[portuguese]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{indentfirst}
+
+\titleformat{\chapter}
+  {\normalfont\huge\bfseries}{}{0em}{}
+\titlespacing*{\chapter}{0pt}{0pt}{20pt}
+
+\setlength{\parskip}{0.6em} 
+\setlength{\parindent}{15pt}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    
+    {\Large {Universidade de Aveiro}\par}
+
+
+    \vspace{0.5cm}
+
+    {\Large \emph{Departamento de Eletrónica, Telecomunicações e Informática}\par}
+
+    \vfill
+    
+    {\Huge \textbf{Lab 1}\par}
+    \vspace{0.5cm}
+    {\Large Informação e Codificação\par}
+
+    \vspace{1cm}
+    \includegraphics[width=0.2\textwidth]{ua_logo.png}\par
+    
+    \vspace{3cm}
+    
+    André Reis (119814)\par
+    Guilherme Sousa (Número / ID)\par
+    João Ferreira (Número / ID)\par
+    
+    \vfill
+    
+    {\large Data\par} 
+\end{titlepage}
+
+\begin{abstract}
+Resumo.
+\end{abstract}
+
+
+\tableofcontents
+\newpage
+
+\section{Introdução}
+Introdução
+
+
+\chapter{Parte I}
+
+\section{Exercício 1}
+
+\section{Exercício 2}
+
+\section{Exercício 3}
+
+\section{Exercício 4: Implementação de Efeitos de Áudio (wav\_effects)}
+
+O objetivo deste exercício consistiu no desenvolvimento de um programa, denominado \emph{wav\_effects}, capaz de aplicar transformações acústicas a ficheiros de áudio PCM no formato WAV. 
+
+\subsection{Implementação}
+
+Optámos por usar Python com a biblioteca \emph{numpy}. O módulo \emph{wave} da biblioteca lê e escreve no contentor WAV, e o numpy permite expressar os efeitos como operações sobre arrays, com um código curto e legível e um desempenho.
+
+Os dados são convertidos para vírgula flutuante de 32 bits no intervalo $[-1,1]$, organizados numa matriz $(N, C)$ com $N$ fotogramas e $C$ canais. Esta representação torna os efeitos independentes da largura de amostra original e permite somar sinais sem overflow de inteiros.
+
+A entrada/saída (read\_wav, write\_wav) está separada dos efeitos.
+
+ O programa suporta os canais mono, estéreo e multicanal e amostras PCM de 8, 16, 24 e 32 bits, preservando a largura original na escrita.
+
+ \subsection{Efeitos}
+
+O sistema divide-se em funções modulares autónomas para cada efeito:
+
+\begin{enumerate}
+    \item \textbf{Eco Simples:}
+    Soma ao sinal original uma cópia atrasada e atenuada:
+    \[
+    y[n] = x[n] + a\,x[n-D], \qquad D = \lfloor \tau f_s \rfloor,
+    \]
+    com $\tau = 0.3$~s e $a = 0.7$. O buffer de saída tem $N + D$ amostras, para acomodar a cauda do eco, pelo que o ficheiro fica $0.3$~s mais longo.
+
+    \item \textbf{Ecos Múltiplos:}
+    Generaliza o eco simples com $K$ repetições cuja amplitude decai geometricamente:
+    \[
+    y[n] = \sum_{k=0}^{K} a^{k}\,x[n-kD],
+    \]
+    com $\tau = 0.25$~s, $a = 0.7$ e $K = 6$, ou seja, o sinal original seguido de seis ecos. A duração aumenta $K\tau = 1.5$~s. Como as repetições se sobrepõem quando o sinal é mais longo do que $D$, as amplitudes somam-se.
+
+    \item \textbf{Modulação de Amplitude:}
+     Multiplica o sinal por um oscilador de baixa frequência (LFO) sinusoidal, produzindo um efeito de tremolo:
+    \[
+    y[n] = x[n]\,m[n], \qquad m[n] = 1 - \frac{p}{2} + \frac{p}{2}\sin\!\left(2\pi f_m \frac{n}{f_s}\right),
+    \]
+    com profundidade $p = 0.8$ e $f_m = 4$~Hz. O ganho varia entre $1-p = 0.2$ e $1$. A duração mantém-se.
+    
+    \item \textbf{Atraso Variável no Tempo:}
+    Soma ao sinal original uma cópia cujo atraso varia continuamente:
+    \[
+    y[n] = x[n] + 0.6\,x[n - d[n]], \qquad d[n] = D_0 + A\sin\!\left(2\pi f_m \frac{n}{f_s}\right),
+    \]
+    com $D_0 = 15$~ms, $A = 10$~ms e $f_m = 0.5$~Hz (o atraso oscila entre 5 e 25~ms). Este processo é conhecido como \emph{flanger}: a combinação do sinal com uma cópia de atraso curto é um filtro em pente, e a variação do atraso desloca os cortes espectrais ao longo do tempo. Como $s = n - d[n]$ é em geral fracionário, o valor é obtido por interpolação linear:
+    \[
+    x[s] \approx (1-\phi)\,x[\lfloor s \rfloor] + \phi\,x[\lfloor s \rfloor + 1], \qquad \phi = s - \lfloor s \rfloor.
+    \]
+    Arredondar $s$ para o inteiro mais próximo produziria saltos bruscos no atraso, audíveis como cliques e \emph{zipper noise}. Nas amostras iniciais, onde $s<0$, apenas se mantém $x[n]$. A duração do ficheiro não se altera.
+\end{enumerate}
+
+\subsection{Utilização}
+
+\texttt{pip install numpy}
+
+\texttt{python3 wav\_effects.py input.wav output.wav sigla}
+
+\begin{table}[H]
+\centering
+\label{tab:efeitos}
+\begin{tabular}{lc}
+\toprule
+Efeito & Sigla \\
+\midrule
+Eco Simples & \texttt{se} \\
+Ecos Múltiplos & \texttt{me} \\
+Modulação de Amplitude & \texttt{am} \\
+Atraso Variável no Tempo & \texttt{vd} \\
+\bottomrule
+\end{tabular}
+\caption{Efeitos de áudio disponíveis}
+\end{table}
+
+
+\chapter{Parte II}
+
+\section{Exercício 5}
+
+\section{Exercício 6}
+
+
+\chapter{Parte III}
+
+\section{Exercício 7}
+
+\section{Exercício 8}
+
+
+\chapter{Conclusão}
+Conclusão.
+
+
+\end{document}
